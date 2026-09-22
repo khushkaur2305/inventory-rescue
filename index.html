@@ -153,6 +153,22 @@
   </div>
   <div id="needOut"></div>
 
+  <!-- ============ 4. SMS NOTIFICATION ============ -->
+  <h2>Send an SMS notification</h2>
+  <div class="card form">
+    <form id="smsForm">
+      <label for="sms_to">Phone number (with country code)</label>
+      <input id="sms_to" placeholder="+919876543210" required>
+
+      <label for="sms_message">Message</label>
+      <input id="sms_message" placeholder="Your stock has a buyer!"
+             value="Inventory Rescue: a buyer was found for your stock." required>
+
+      <button id="smsBtn" type="submit">Send SMS</button>
+    </form>
+  </div>
+  <div id="smsOut"></div>
+
 </div>
 
 <script>
@@ -284,6 +300,35 @@ $("needForm").onsubmit = async function (e) {
     errBox("needOut", err.message);
   } finally {
     btn.disabled = false; btn.textContent = "Add Need";
+  }
+};
+
+// ---------- POST /api/send-sms : send one SMS through Twilio ----------
+$("smsForm").onsubmit = async function (e) {
+  e.preventDefault();
+  const btn = $("smsBtn");
+  btn.disabled = true; btn.textContent = "Sending...";
+  $("smsOut").innerHTML = "";
+
+  try {
+    const res = await fetch("/api/send-sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: $("sms_to").value.trim(),
+        message: $("sms_message").value.trim()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "Server returned " + res.status);
+
+    $("smsOut").innerHTML =
+      '<div class="note ok">SMS sent. Twilio status: <b>' + esc(data.status) + '</b></div>';
+  } catch (err) {
+    $("smsOut").innerHTML =
+      '<div class="note err"><b>Could not send the SMS.</b><br>' + esc(err.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = "Send SMS";
   }
 };
 
