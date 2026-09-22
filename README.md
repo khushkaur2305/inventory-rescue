@@ -35,11 +35,23 @@ HTML page draws the results table
 
 | File | What it is |
 |---|---|
-| `index.html` | The frontend — form + results table. Holds no keys. |
-| `docs.html` | API documentation page |
-| `api/find-buyers.js` | **The API** — Vercel Serverless Function |
+| `index.html` | The frontend — search, buyer list, add form. Holds no keys. |
+| `docs.html` | Swagger UI, rendering `openapi.json` |
+| `openapi.json` | OpenAPI 3.0 spec for all three endpoints |
+| `api/find-buyers.js` | **POST** `/api/find-buyers` — the matching engine |
+| `api/needs.js` | **GET / POST** `/api/needs` — list and add buyer needs |
 | `supabase/schema.sql` | Creates the tables and sample buyers |
-| `supabase/functions/find-buyers/index.ts` | The same API as a Supabase Edge Function (alternative) |
+| `supabase/functions/find-buyers/index.ts` | The same matching API as a Supabase Edge Function (alternative) |
+
+## Endpoints
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/api/needs` | List every active buyer need |
+| `POST` | `/api/needs` | Add a buyer need (creates the business if new) |
+| `POST` | `/api/find-buyers` | Score and rank buyers for a seller's excess stock |
+
+Full request/response details, with a **Try it out** button for each, are on `docs.html`.
 
 ## Setup
 

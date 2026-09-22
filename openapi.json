@@ -1,0 +1,265 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Inventory Rescue AI — Buyer Matching API",
+    "version": "1.0.0",
+    "description": "Finds potential B2B buyers for a business's excess inventory. Buyer needs are stored in Supabase."
+  },
+  "servers": [{ "url": "/", "description": "This deployment" }],
+  "paths": {
+    "/api/needs": {
+      "get": {
+        "summary": "List active buyer needs",
+        "description": "Every product businesses are currently looking to buy.",
+        "responses": {
+          "200": {
+            "description": "The list of active needs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer", "example": 3 },
+                    "needs": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Need" }
+                    }
+                  }
+                },
+                "example": {
+                  "count": 3,
+                  "needs": [
+                    {
+                      "product_type": "rice",
+                      "quantity_required": 300,
+                      "max_price": 45,
+                      "business_name": "Sharma Wholesale",
+                      "city": "Ludhiana"
+                    },
+                    {
+                      "product_type": "rice",
+                      "quantity_required": 800,
+                      "max_price": 38,
+                      "business_name": "Gupta Traders",
+                      "city": "Amritsar"
+                    },
+                    {
+                      "product_type": "sugar",
+                      "quantity_required": 200,
+                      "max_price": 50,
+                      "business_name": "Singh Kirana",
+                      "city": "Ludhiana"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Environment variables missing, or a database error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a buyer need",
+        "description": "Registers a business and the product it wants to buy. If a business with the same name already exists it is reused rather than duplicated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewNeed" },
+              "example": {
+                "business_name": "Verma Foods",
+                "city": "Jalandhar",
+                "contact_email": "verma@example.com",
+                "product_type": "rice",
+                "quantity_required": 400,
+                "max_price": 42
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The need was created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "ok": true,
+                  "need": {
+                    "id": "8f14e45f-ceea-467a-9c1e-1b2c3d4e5f60",
+                    "product_type": "rice",
+                    "quantity_required": 400,
+                    "max_price": 42,
+                    "is_active": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A required field is missing",
+            "content": {
+              "application/json": { "example": { "error": "Missing: city, max_price" } }
+            }
+          },
+          "500": {
+            "description": "Environment variables missing, or a database error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/find-buyers": {
+      "post": {
+        "summary": "Find buyers for excess stock",
+        "description": "Takes a product a seller wants to move and returns businesses that want to buy it, each scored out of 100 and sorted best match first.\n\n**Scoring:** 40 points for a matching product type, +25 if your price is within their budget, +20 if you have enough quantity, +15 if they are in the same city. Every result carries a `reasons` list explaining its score.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SellerStock" },
+              "example": {
+                "product_type": "rice",
+                "quantity": 500,
+                "price_per_unit": 40,
+                "city": "Ludhiana"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching buyers, best first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer", "example": 2 },
+                    "buyers": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/BuyerMatch" }
+                    }
+                  }
+                },
+                "example": {
+                  "count": 2,
+                  "buyers": [
+                    {
+                      "business_name": "Sharma Wholesale",
+                      "city": "Ludhiana",
+                      "contact_email": "sharma@example.com",
+                      "quantity_required": 300,
+                      "max_price": 45,
+                      "match_score": 100,
+                      "reasons": [
+                        "Same product",
+                        "Price is within budget",
+                        "Has enough quantity",
+                        "Same city"
+                      ]
+                    },
+                    {
+                      "business_name": "Gupta Traders",
+                      "city": "Amritsar",
+                      "contact_email": "gupta@example.com",
+                      "quantity_required": 800,
+                      "max_price": 38,
+                      "match_score": 40,
+                      "reasons": ["Same product"]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "product_type was not supplied",
+            "content": {
+              "application/json": { "example": { "error": "product_type is required" } }
+            }
+          },
+          "405": {
+            "description": "Wrong HTTP method",
+            "content": { "application/json": { "example": { "error": "Use POST" } } }
+          },
+          "500": {
+            "description": "Environment variables missing, or a database error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Need": {
+        "type": "object",
+        "properties": {
+          "product_type": { "type": "string", "example": "rice" },
+          "quantity_required": { "type": "integer", "example": 300 },
+          "max_price": { "type": "number", "example": 45 },
+          "business_name": { "type": "string", "example": "Sharma Wholesale" },
+          "city": { "type": "string", "example": "Ludhiana" }
+        }
+      },
+      "NewNeed": {
+        "type": "object",
+        "required": [
+          "business_name",
+          "city",
+          "contact_email",
+          "product_type",
+          "quantity_required",
+          "max_price"
+        ],
+        "properties": {
+          "business_name": { "type": "string", "description": "Name of the buying business" },
+          "city": { "type": "string", "description": "Where the buyer is based" },
+          "contact_email": { "type": "string", "description": "Shown to a seller on a match" },
+          "product_type": { "type": "string", "description": "What they want to buy" },
+          "quantity_required": { "type": "integer", "description": "Units wanted" },
+          "max_price": { "type": "number", "description": "Most they will pay per unit" }
+        }
+      },
+      "SellerStock": {
+        "type": "object",
+        "required": ["product_type"],
+        "properties": {
+          "product_type": { "type": "string", "description": "What you are selling" },
+          "quantity": { "type": "integer", "description": "Units you have available" },
+          "price_per_unit": { "type": "number", "description": "Your asking price per unit" },
+          "city": { "type": "string", "description": "Where the stock is located" }
+        }
+      },
+      "BuyerMatch": {
+        "type": "object",
+        "properties": {
+          "business_name": { "type": "string" },
+          "city": { "type": "string" },
+          "contact_email": { "type": "string" },
+          "quantity_required": { "type": "integer" },
+          "max_price": { "type": "number" },
+          "match_score": { "type": "integer", "description": "0 to 100, higher is better" },
+          "reasons": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Plain-English explanation of the score"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } }
+      }
+    }
+  }
+}
