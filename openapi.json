@@ -197,6 +197,53 @@
           }
         }
       }
+    },
+    "/api/send-sms": {
+      "post": {
+        "summary": "Send an SMS notification",
+        "description": "Sends one SMS through Twilio, for example to tell a seller that a buyer was found.\n\nThe Twilio credentials live only in Vercel environment variables (`TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET`, `TWILIO_FROM_NUMBER`) and are read by the serverless function at runtime. The browser never sees them.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SmsRequest" },
+              "example": {
+                "to": "+919876543210",
+                "message": "Inventory Rescue: a buyer was found for your stock."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Twilio accepted the message",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SmsResult" },
+                "example": { "ok": true, "sid": "SM1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d", "status": "queued" }
+              }
+            }
+          },
+          "400": {
+            "description": "`to` or `message` was not supplied",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "405": {
+            "description": "A method other than POST was used",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "500": {
+            "description": "Environment variables missing, or Twilio rejected the request (for example an unverified number on a trial account)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -254,6 +301,30 @@
             "items": { "type": "string" },
             "description": "Plain-English explanation of the score"
           }
+        }
+      },
+      "SmsRequest": {
+        "type": "object",
+        "required": ["to", "message"],
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient in international format, including the country code",
+            "example": "+919876543210"
+          },
+          "message": {
+            "type": "string",
+            "description": "The text to send",
+            "example": "Inventory Rescue: a buyer was found for your stock."
+          }
+        }
+      },
+      "SmsResult": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "sid": { "type": "string", "description": "Twilio's id for the message" },
+          "status": { "type": "string", "description": "Twilio delivery status, usually `queued`", "example": "queued" }
         }
       },
       "Error": {
