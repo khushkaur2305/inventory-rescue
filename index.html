@@ -160,9 +160,29 @@
       <label for="sms_to">Phone number (with country code)</label>
       <input id="sms_to" placeholder="+919876543210" required>
 
-      <label for="sms_message">Message</label>
-      <input id="sms_message" placeholder="Your stock has a buyer!"
-             value="Inventory Rescue: a buyer was found for your stock." required>
+      <label for="sms_template">Message</label>
+      <select id="sms_template">
+        <option value="sms_account_alerts">Account alert</option>
+        <option value="sms_order_confirmation">Order confirmation</option>
+        <option value="sms_delivery_updates">Delivery update</option>
+        <option value="sms_internal_alerts">Internal alert</option>
+        <option value="sms_appointment_reminders">Appointment reminder</option>
+        <option value="sms_customer_support">Customer support</option>
+        <option value="sms_event_notifications">Event notification</option>
+        <option value="sms_feedback_surveys">Feedback survey</option>
+        <option value="custom">Custom wording (needs an upgraded Twilio account)</option>
+      </select>
+
+      <div id="customWrap" style="display:none">
+        <label for="sms_message">Your wording</label>
+        <input id="sms_message" placeholder="Your stock has a buyer!"
+               value="Inventory Rescue: a buyer was found for your stock.">
+      </div>
+
+      <p class="row-sub" style="margin-top:10px">
+        A Twilio trial account can only send these ready-made templates. Custom wording
+        starts working once the Twilio account is upgraded.
+      </p>
 
       <button id="smsBtn" type="submit">Send SMS</button>
     </form>
@@ -304,6 +324,17 @@ $("needForm").onsubmit = async function (e) {
 };
 
 // ---------- POST /api/send-sms : send one SMS through Twilio ----------
+// A trial account accepts only Twilio's template names as the body, so the
+// dropdown sends the name itself; "custom" reveals a free-text box instead.
+$("sms_template").onchange = function () {
+  $("customWrap").style.display = this.value === "custom" ? "block" : "none";
+};
+
+function smsMessage() {
+  const choice = $("sms_template").value;
+  return choice === "custom" ? $("sms_message").value.trim() : choice;
+}
+
 $("smsForm").onsubmit = async function (e) {
   e.preventDefault();
   const btn = $("smsBtn");
@@ -316,7 +347,7 @@ $("smsForm").onsubmit = async function (e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: $("sms_to").value.trim(),
-        message: $("sms_message").value.trim()
+        message: smsMessage()
       })
     });
     const data = await res.json();

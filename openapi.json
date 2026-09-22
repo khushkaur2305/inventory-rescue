@@ -209,7 +209,7 @@
               "schema": { "$ref": "#/components/schemas/SmsRequest" },
               "example": {
                 "to": "+919876543210",
-                "message": "Inventory Rescue: a buyer was found for your stock."
+                "message": "sms_account_alerts"
               }
             }
           }
@@ -314,8 +314,20 @@
           },
           "message": {
             "type": "string",
-            "description": "The text to send",
-            "example": "Inventory Rescue: a buyer was found for your stock."
+            "description": "On a Twilio trial account this must be one of Twilio's template names, and any other value is rejected. Custom wording works once the Twilio account is upgraded.",
+            "example": "sms_account_alerts",
+            "enum": [
+              "sms_2fa",
+              "sms_appointment_reminders",
+              "sms_order_confirmation",
+              "sms_delivery_updates",
+              "sms_customer_support",
+              "sms_marketing_promotions",
+              "sms_event_notifications",
+              "sms_account_alerts",
+              "sms_feedback_surveys",
+              "sms_internal_alerts"
+            ]
           }
         }
       },

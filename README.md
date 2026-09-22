@@ -120,9 +120,18 @@ Only needed for **Send SMS**. The rest of the site works without it.
 
 Tick **Production**, **Preview** and **Development**, then redeploy as in step 4.
 
-**Trial accounts** can only text numbers you have verified under **Phone Numbers → Verified
-Caller IDs**, and the message arrives with a trial prefix. An unverified recipient is the most
-common reason the button fails.
+**Trial accounts** have two restrictions that shape this feature:
+
+1. You can only text numbers verified under **Phone Numbers → Verified Caller IDs**, and the
+   message arrives with a trial prefix.
+2. The Messages API accepts only `to`, `body` and `statusCallback`. `body` must be one of
+   Twilio's ready-made template names — custom wording and the `From` parameter are both
+   rejected with *"Invalid or disallowed parameters provided"*.
+
+So the page offers a dropdown of templates (`sms_account_alerts`, `sms_order_confirmation`,
+and so on) plus a **Custom wording** option. `api/send-sms.js` omits `From` when the body is a
+template name and includes it otherwise, so custom wording begins working on its own once the
+Twilio account is upgraded — no code change needed.
 
 ### 6. Test
 

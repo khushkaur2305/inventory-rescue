@@ -1,12 +1,29 @@
 // POST /api/send-sms  -> sends one SMS through Twilio
 //
-// Body: { "to": "+919876543210", "message": "Hello" }
+// Body: { "to": "+919876543210", "message": "sms_account_alerts" }
 //
 // Reads these from Vercel environment variables (never put them in the HTML):
 //   TWILIO_ACCOUNT_SID      the AC... id on your Twilio console home page
 //   TWILIO_API_KEY_SID      the SK... id of the API Key you created
 //   TWILIO_API_KEY_SECRET   the secret Twilio showed you once, when you made the key
 //   TWILIO_FROM_NUMBER      your Twilio phone number, e.g. +12025550123
+//
+// Trial accounts may only send one of Twilio's ready-made templates, and may not
+// send the From parameter at all. Custom wording starts working by itself once
+// the Twilio account is upgraded — no code change needed.
+
+const TRIAL_TEMPLATES = [
+  "sms_2fa",
+  "sms_appointment_reminders",
+  "sms_order_confirmation",
+  "sms_delivery_updates",
+  "sms_customer_support",
+  "sms_marketing_promotions",
+  "sms_event_notifications",
+  "sms_account_alerts",
+  "sms_feedback_surveys",
+  "sms_internal_alerts",
+];
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -32,12 +49,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing: to, message" });
   }
 
+  // A template name is the only body a trial account accepts, and such a
+  // request must not carry From either. Anything else is custom wording,
+  // which works once the account is upgraded.
+  const isTemplate = TRIAL_TEMPLATES.includes(String(message));
+
+  const fields = { To: String(to), Body: String(message) };
+  if (!isTemplate) fields.From = FROM_NUMBER;
+
   // Twilio wants a normal HTML form body, not JSON.
-  const form = new URLSearchParams({
-    To: String(to),
-    From: FROM_NUMBER,
-    Body: String(message),
-  });
+  const form = new URLSearchParams(fields);
 
   // An API Key signs in as: username = SK... sid, password = the key secret.
   const auth = Buffer.from(API_KEY_SID + ":" + API_KEY_SECRET).toString("base64");
@@ -58,7 +79,14 @@ export default async function handler(req, res) {
 
   if (!r.ok) {
     // Twilio explains the problem in data.message, e.g. an unverified number.
-    return res.status(500).json({ error: data.message || "Twilio rejected the request" });
+    let error = data.message || "Twilio rejected the request";
+    if (!isTemplate) {
+      error +=
+        " (Custom wording and the From number are blocked on a Twilio trial " +
+        "account. Pick one of the ready-made templates instead, or upgrade " +
+        "the Twilio account.)";
+    }
+    return res.status(500).json({ error });
   }
 
   return res.status(200).json({ ok: true, sid: data.sid, status: data.status });
