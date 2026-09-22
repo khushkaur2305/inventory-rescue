@@ -70,13 +70,13 @@
   <!-- ============ OVERVIEW ============ -->
   <div class="card">
     <h2>How it works</h2>
-    <div class="flow">Seller fills the form
+    <div class="flow">Seller fills the form   (no keys in the browser)
       |
-      |  POST { product_type, quantity, price_per_unit, city }
+      |  POST /api/find-buyers  { product_type, quantity, price_per_unit, city }
       v
-Supabase Edge Function  (find-buyers)
-      |
-      |  query: active needs matching this product
+Vercel Serverless Function
+      |   reads SUPABASE_URL + SUPABASE_SECRET_KEY
+      |   from Vercel environment variables
       v
 Supabase Postgres  (businesses + buyer_needs)
       |
@@ -95,7 +95,7 @@ HTML page draws the results table</div>
       <span class="method">POST</span>
       <span class="path">/api/find-buyers</span>
     </div>
-    <p class="key">Live URL: <code>https://&lt;project-ref&gt;.supabase.co/functions/v1/find-buyers</code></p>
+    <p class="key">Live URL: <code>https://&lt;your-app&gt;.vercel.app/api/find-buyers</code></p>
     <p>Takes the details of a product a seller wants to move, and returns businesses that
        are looking to buy it &mdash; scored and sorted, best match first.</p>
 
@@ -111,9 +111,8 @@ HTML page draws the results table</div>
     </div>
 
     <h3>Example request</h3>
-<pre><code>POST /functions/v1/find-buyers
+<pre><code>POST /api/find-buyers
 Content-Type: application/json
-Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;
 
 {
   "product_type": "rice",
@@ -146,8 +145,8 @@ Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;
       "contact_email": "gupta@example.com",
       "quantity_required": 800,
       "max_price": 38,
-      "match_score": 60,
-      "reasons": ["Same product", "Has enough quantity"]
+      "match_score": 40,
+      "reasons": ["Same product"]
     }
   ]
 }</code></pre>
@@ -157,9 +156,27 @@ Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;
       <table>
         <tr><th>Status</th><th>Body</th><th>When</th></tr>
         <tr><td><code>400</code></td><td><code>{ "error": "product_type is required" }</code></td><td><code>product_type</code> missing or empty</td></tr>
-        <tr><td><code>500</code></td><td><code>{ "error": "&lt;database message&gt;" }</code></td><td>The database query failed</td></tr>
+        <tr><td><code>405</code></td><td><code>{ "error": "Use POST" }</code></td><td>Called with GET or another method</td></tr>
+        <tr><td><code>500</code></td><td><code>{ "error": "Environment variables are not set..." }</code></td><td>Env vars missing, or not redeployed after adding them</td></tr>
+        <tr><td><code>500</code></td><td><code>{ "error": "Database error: ..." }</code></td><td>The Supabase query failed</td></tr>
       </table>
     </div>
+  </div>
+
+  <!-- ============ ENV VARS ============ -->
+  <div class="card">
+    <h2>Environment variables</h2>
+    <p>Set in the Vercel dashboard under <b>Settings &rarr; Environment Variables</b>, then redeploy.</p>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Name</th><th>Value</th><th>Used for</th></tr>
+        <tr><td><code>SUPABASE_URL</code></td><td><code>https://&lt;project-ref&gt;.supabase.co</code></td><td>Where the database lives</td></tr>
+        <tr><td><code>SUPABASE_SECRET_KEY</code></td><td><code>sb_secret_...</code></td><td>Reads the tables, bypassing RLS</td></tr>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px"><b>Redeploying matters.</b> Environment variables are
+      injected when a deployment is built, so a deployment that ran before you added them will not
+      see them. Add the variables first, then redeploy.</div>
   </div>
 
   <!-- ============ SCORING ============ -->
@@ -213,17 +230,21 @@ Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;
   <!-- ============ SECURITY ============ -->
   <div class="card">
     <h2>Security</h2>
-    <div class="flow">Browser  --(anon key)-->  Edge Function  --(service role key)-->  Database
-   |                            |                                   |
- cannot read                 does the                          locked by
- the database                reading                               RLS
- directly                    on your behalf</div>
-    <p style="margin-top:14px">Row Level Security is <b>enabled</b> on both tables, so the anon key
-       cannot read them directly &mdash; even though it is visible in the page source. The Edge
-       Function uses the <code>service_role</code> key, which stays on Supabase&rsquo;s servers and
-       never reaches the browser.</p>
-    <div class="note"><b>Why the anon key is safe to publish:</b> it is an identifier, not a
-      password. It only lets the browser <i>call</i> the function. RLS is what protects the data.</div>
+    <div class="flow">Browser  --(no keys)-->  Serverless Function  --(secret key)-->  Database
+   |                             |                                    |
+ cannot reach                 holds the                          locked by
+ the database                 secret key                             RLS
+ at all                       server-side</div>
+    <p style="margin-top:14px">The browser holds <b>no keys at all</b>. It can only call
+       <code>/api/find-buyers</code> on its own domain. The secret key exists solely as a Vercel
+       environment variable, read by the serverless function at runtime &mdash; it is never in the
+       repository and never sent to a browser.</p>
+    <p>Row Level Security is <b>enabled</b> on both tables, so even a leaked publishable key could
+       not read them. The secret key bypasses RLS, which is exactly why it must stay server-side.</p>
+    <div class="note"><b>Why not put the key in the page?</b> Any file the browser downloads can be
+      read by opening it directly &mdash; <code>view-source</code> or visiting the <code>.js</code>
+      file. There is no way to hide a key in frontend code. Keeping it on the server is the only
+      real protection.</div>
   </div>
 
   <!-- ============ STACK ============ -->
@@ -234,8 +255,9 @@ Authorization: Bearer &lt;SUPABASE_ANON_KEY&gt;
         <tr><th>Layer</th><th>Technology</th><th>Cost</th></tr>
         <tr><td>Frontend</td><td>Plain HTML, CSS and JavaScript &mdash; no framework, no build step</td><td>Free</td></tr>
         <tr><td>Hosting</td><td>Vercel</td><td>Free tier</td></tr>
-        <tr><td>API</td><td>Supabase Edge Function (Deno, TypeScript)</td><td>Free tier</td></tr>
+        <tr><td>API</td><td>Vercel Serverless Function (Node.js)</td><td>Free tier</td></tr>
         <tr><td>Database</td><td>Supabase Postgres</td><td>Free tier</td></tr>
+        <tr><td>Secrets</td><td>Vercel environment variables</td><td>Free</td></tr>
       </table>
     </div>
   </div>

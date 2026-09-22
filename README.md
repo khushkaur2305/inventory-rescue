@@ -5,20 +5,20 @@ A B2B platform that finds potential buyers for a business's excess inventory.
 A seller enters what they are stuck with — product type, quantity, price, city — and the API
 returns other businesses that want to buy it, scored out of 100 and sorted best-match-first.
 
-**Live pages**
+**Pages**
 - `index.html` — the seller's search form and results
 - `docs.html` — API documentation
 
 ## How it works
 
 ```
-Seller fills the form
+Seller fills the form   (no keys in the browser)
         |
-        |  POST { product_type, quantity, price_per_unit, city }
+        |  POST /api/find-buyers  { product_type, quantity, price_per_unit, city }
         v
-Supabase Edge Function  (find-buyers)
-        |
-        |  query: active needs matching this product
+Vercel Serverless Function
+        |   reads SUPABASE_URL + SUPABASE_SECRET_KEY
+        |   from Vercel environment variables
         v
 Supabase Postgres  (businesses + buyer_needs)
         |
@@ -35,11 +35,11 @@ HTML page draws the results table
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole frontend — form + results table |
+| `index.html` | The frontend — form + results table. Holds no keys. |
 | `docs.html` | API documentation page |
-| `config.js` | Your two Supabase values. **Edit this before anything works.** |
+| `api/find-buyers.js` | **The API** — Vercel Serverless Function |
 | `supabase/schema.sql` | Creates the tables and sample buyers |
-| `supabase/functions/find-buyers/index.ts` | The API |
+| `supabase/functions/find-buyers/index.ts` | The same API as a Supabase Edge Function (alternative) |
 
 ## Setup
 
@@ -49,49 +49,42 @@ Supabase dashboard → **SQL Editor** → **New query** → paste `supabase/sche
 
 When it warns about Row Level Security, click **"Run and enable RLS"**.
 
-Check it worked: **Table Editor** → `businesses` shows 3 rows, `buyer_needs` shows 3 rows.
+Check: **Table Editor** → `businesses` has 3 rows, `buyer_needs` has 3 rows.
 
-### 2. API
+### 2. Deploy to Vercel
 
-Supabase dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+Push this repo to GitHub, then on **vercel.com**: **Add New → Project** → import the repo →
+Framework Preset **Other** → leave all build settings blank → **Deploy**.
 
-Name it exactly `find-buyers`, paste in `supabase/functions/find-buyers/index.ts`, **Deploy**.
+Vercel picks up anything in `/api` as a serverless function automatically. There is no build step
+and no dependencies to install.
 
-Test it right there with:
+### 3. Add the environment variables
 
-```json
-{ "product_type": "rice", "quantity": 500, "price_per_unit": 40, "city": "Ludhiana" }
-```
+Vercel → your project → **Settings** → **Environment Variables**. Add two:
 
-You should get back Sharma Wholesale at 100% and Gupta Traders at 60%.
+| Name | Value | Where to find it |
+|---|---|---|
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` | Supabase → Settings → API |
+| `SUPABASE_SECRET_KEY` | `sb_secret_...` | Supabase → Settings → API |
 
-### 3. Frontend
+Tick **Production**, **Preview** and **Development**.
 
-Supabase dashboard → **Settings → API**. Copy your **Project URL** and **anon key** into
-`config.js`:
+### 4. Redeploy
 
-```javascript
-const SUPABASE_URL = "https://abcdefghijk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOi...";
-```
+**Deployments** tab → the latest one → **⋯** → **Redeploy**.
 
-Then double-click `index.html` to test it locally before deploying.
+This step is easy to miss and the usual cause of a 500 error. Environment variables are injected
+when a deployment is built, so the deployment that ran *before* you added them cannot see them.
 
-## Deploy to Vercel
+### 5. Test
 
-```bash
-git init
-git add .
-git commit -m "Inventory Rescue AI"
-git branch -M main
-git remote add origin https://github.com/<your-username>/inventory-rescue.git
-git push -u origin main
-```
+Open your Vercel URL and click **Find Buyers**. With the sample data you should get:
 
-Then on **vercel.com**: **Add New → Project** → import the repo → Framework Preset **Other** →
-leave all build settings blank → **Deploy**.
-
-It is plain HTML, so there is nothing to build. Every `git push` after this redeploys automatically.
+| Buyer | Score | Why |
+|---|---|---|
+| Sharma Wholesale | 100 | Same product, price fits, enough quantity, same city |
+| Gupta Traders | 40 | Same product only — they need 800 units, you have 500, and they cap at ₹38 |
 
 ## The match score
 
@@ -105,17 +98,23 @@ It is plain HTML, so there is nothing to build. Every `git push` after this rede
 Maximum 100. Every result also carries a `reasons` list, so the score always explains itself —
 that is the difference between a number a business trusts and one it ignores.
 
-## Is it safe to commit the anon key?
+## Security
 
-Yes. The anon key is designed to be public and is visible in the page source of every Supabase
-app. It is an identifier, not a password — it only lets the browser *call* the function.
+```
+Browser  --(no keys)-->  Serverless Function  --(secret key)-->  Database
+```
 
-What actually protects the data is **Row Level Security**, which is enabled on both tables so
-nothing can be read with the anon key. The powerful `service_role` key lives only inside the Edge
-Function on Supabase's servers and never appears in this repository.
+The browser holds **no keys at all**. It can only call `/api/find-buyers` on its own domain.
 
-That separation is the reason the API is a serverless function rather than the page querying the
-database directly.
+The secret key lives only as a Vercel environment variable, read by the serverless function at
+runtime. It is not in this repository and is never sent to a browser.
+
+**Why the key could not just go in the frontend:** any file the browser downloads can be read by
+opening it directly — `view-source`, or visiting the `.js` file's URL. There is no way to hide a
+key in frontend code. Keeping it server-side is the only real protection.
+
+Row Level Security is enabled on both tables as a second layer, so even a leaked publishable key
+could not read them.
 
 ## Tech stack
 
@@ -123,5 +122,12 @@ database directly.
 |---|---|---|
 | Frontend | HTML, CSS, JavaScript — no framework, no build step | Free |
 | Hosting | Vercel | Free tier |
-| API | Supabase Edge Function (Deno / TypeScript) | Free tier |
+| API | Vercel Serverless Function (Node.js) | Free tier |
 | Database | Supabase Postgres | Free tier |
+| Secrets | Vercel environment variables | Free |
+
+## Note on the Supabase Edge Function
+
+`supabase/functions/find-buyers/index.ts` is the same endpoint implemented as a Supabase Edge
+Function (Deno/TypeScript). It is deployed and working, and is kept here as an alternative
+implementation. The live site uses the Vercel function instead.

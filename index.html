@@ -108,26 +108,14 @@
   <footer>Inventory Rescue AI &middot; Supabase Edge Function + Vercel</footer>
 </div>
 
-<script src="config.js"></script>
 <script>
+// The API lives on the same domain, so this is just a relative path.
+// No keys here - the serverless function holds them.
+const API_URL = "/api/find-buyers";
+
 const output = document.getElementById("output");
 const btn = document.getElementById("btn");
 const form = document.getElementById("form");
-
-// Warn clearly if config.js still has the placeholder values.
-// Without this you would just get a confusing "Failed to fetch".
-const notConfigured =
-  typeof SUPABASE_URL === "undefined" ||
-  SUPABASE_URL.indexOf("YOUR-PROJECT-REF") !== -1 ||
-  SUPABASE_ANON_KEY.indexOf("YOUR-ANON-KEY") !== -1;
-
-if (notConfigured) {
-  output.innerHTML =
-    '<div class="note warn"><b>Setup needed.</b> Open <code>config.js</code> and paste your ' +
-    'Supabase Project URL and anon key. Both are in your Supabase dashboard under ' +
-    '<b>Settings &rarr; API</b>.</div>';
-  btn.disabled = true;
-}
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, function (c) {
@@ -152,10 +140,7 @@ form.onsubmit = async function (e) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + SUPABASE_ANON_KEY
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
 
@@ -198,8 +183,9 @@ form.onsubmit = async function (e) {
   } catch (err) {
     output.innerHTML =
       '<div class="note err"><b>Could not reach the API.</b><br>' + esc(err.message) +
-      '<br><br>Check that your Edge Function <code>find-buyers</code> is deployed, and that the ' +
-      'URL and key in <code>config.js</code> are correct.</div>';
+      '<br><br>Check that <code>SUPABASE_URL</code> and <code>SUPABASE_SECRET_KEY</code> are set ' +
+      'in Vercel under <b>Settings &rarr; Environment Variables</b>, and that you redeployed ' +
+      'after adding them.</div>';
   } finally {
     btn.disabled = false;
     btn.textContent = "Find Buyers";
