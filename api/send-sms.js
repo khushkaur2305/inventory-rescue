@@ -8,9 +8,9 @@
 //   TWILIO_API_KEY_SECRET   the secret Twilio showed you once, when you made the key
 //   TWILIO_FROM_NUMBER      your Twilio phone number, e.g. +12025550123
 //
-// Trial accounts may only send one of Twilio's ready-made templates, and may not
-// send the From parameter at all. Custom wording starts working by itself once
-// the Twilio account is upgraded — no code change needed.
+// Trial accounts may only send one of Twilio's ready-made templates as the body,
+// and From must be the assigned trial number. Custom wording starts working by
+// itself once the Twilio account is upgraded — no code change needed.
 
 const TRIAL_TEMPLATES = [
   "sms_2fa",
@@ -49,13 +49,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing: to, message" });
   }
 
-  // A template name is the only body a trial account accepts, and such a
-  // request must not carry From either. Anything else is custom wording,
-  // which works once the account is upgraded.
+  // A template name is the only body a trial account accepts; anything else
+  // is custom wording, which works once the account is upgraded. From is
+  // always required, and on a trial it must be the assigned trial number.
   const isTemplate = TRIAL_TEMPLATES.includes(String(message));
 
-  const fields = { To: String(to), Body: String(message) };
-  if (!isTemplate) fields.From = FROM_NUMBER;
+  const fields = { To: String(to), From: FROM_NUMBER, Body: String(message) };
 
   // Twilio wants a normal HTML form body, not JSON.
   const form = new URLSearchParams(fields);
