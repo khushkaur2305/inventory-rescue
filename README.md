@@ -129,9 +129,12 @@ Tick **Production**, **Preview** and **Development**, then redeploy as in step 4
    rejected with *"Invalid or disallowed parameters provided"*.
 
 So the page offers a dropdown of templates (`sms_account_alerts`, `sms_order_confirmation`,
-and so on) plus a **Custom wording** option. `api/send-sms.js` omits `From` when the body is a
-template name and includes it otherwise, so custom wording begins working on its own once the
+and so on) plus a **Custom wording** option. Custom wording begins working on its own once the
 Twilio account is upgraded — no code change needed.
+
+`From` is always sent and must be your assigned trial number. Omitting it fails with Twilio
+error **572003**, *"the 'from' number isn't assigned to this verified messaging recipient"*,
+which is easy to misread as a problem with the recipient.
 
 ### 6. Test
 
