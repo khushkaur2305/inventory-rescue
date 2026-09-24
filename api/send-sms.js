@@ -79,6 +79,8 @@ export default async function handler(req, res) {
 
   if (!r.ok) {
     // Twilio explains the problem in data.message, e.g. an unverified number.
+    // The code and the parameter names are echoed back because the two are
+    // what actually identify a rejection; the values are left out on purpose.
     let error = data.message || "Twilio rejected the request";
     if (!isTemplate) {
       error +=
@@ -86,7 +88,14 @@ export default async function handler(req, res) {
         "account. Pick one of the ready-made templates instead, or upgrade " +
         "the Twilio account.)";
     }
-    return res.status(500).json({ error });
+    return res.status(500).json({
+      error,
+      twilio_code: data.code || null,
+      twilio_status: r.status,
+      sent_params: Object.keys(fields),
+      body_sent: fields.Body,
+      treated_as_template: isTemplate,
+    });
   }
 
   return res.status(200).json({ ok: true, sid: data.sid, status: data.status });

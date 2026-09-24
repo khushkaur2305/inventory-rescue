@@ -351,13 +351,24 @@ $("smsForm").onsubmit = async function (e) {
       })
     });
     const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || "Server returned " + res.status);
+    if (!res.ok || data.error) {
+      const e = new Error(data.error || "Server returned " + res.status);
+      // Carry Twilio's own error code and the parameter names through, so a
+      // rejection can be identified without guessing.
+      if (data.twilio_code || data.sent_params) {
+        e.detail =
+          "code " + data.twilio_code + " | sent " + (data.sent_params || []).join(",") +
+          " | body " + data.body_sent + " | template " + data.treated_as_template;
+      }
+      throw e;
+    }
 
     $("smsOut").innerHTML =
       '<div class="note ok">SMS sent. Twilio status: <b>' + esc(data.status) + '</b></div>';
   } catch (err) {
     $("smsOut").innerHTML =
-      '<div class="note err"><b>Could not send the SMS.</b><br>' + esc(err.message) + '</div>';
+      '<div class="note err"><b>Could not send the SMS.</b><br>' + esc(err.message) +
+      (err.detail ? '<br><br><code>' + esc(err.detail) + '</code>' : '') + '</div>';
   } finally {
     btn.disabled = false; btn.textContent = "Send SMS";
   }
